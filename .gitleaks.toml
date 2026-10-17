@@ -11,7 +11,3 @@ id = "home-path"
 description = "A path into someone's home folder: write ~ or $HOME instead"
 regex = '''/(?:Users|home)/[A-Za-z][\w.-]*'''
 keywords = ["/users/", "/home/"]
-
-[allowlist]
-description = "What can't be public goes in private/"
-paths = ['''(^|/)private/''']
