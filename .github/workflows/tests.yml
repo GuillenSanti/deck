@@ -1,0 +1,21 @@
+name: tests
+
+on: [push, pull_request]
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Compile Python files
+        run: python -m compileall -q agent_sessions.py agents-history.py branch_diff.py cards dash.py dash_common.py dash_github.py dash_machine.py dash_settings.py dash_ui.py pr_review.py tests
+      - name: Run unit tests
+        run: python -m unittest discover -s tests -v
