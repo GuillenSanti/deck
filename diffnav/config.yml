@@ -1,0 +1,8 @@
+# diffnav in the review windows of deck/pr_review.py (DIFFNAV_CONFIG_DIR points here)
+ui:
+  # The diff gets half the window: unified fits it (s switches to side by side, prefix z zooms the pane)
+  sideBySide: false
+  hideHeader: true
+  # Every folder open, like GitHub's file tree
+  startFoldersOpenDepth: -1
+  fileTreeWidth: 30

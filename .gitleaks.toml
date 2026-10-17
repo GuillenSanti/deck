@@ -1,0 +1,17 @@
+# What mustn't reach the repo: secrets (gitleaks' own rules) and paths into your home folder. The
+# pre-commit hook (.githooks) checks each commit with it, and the gitleaks workflow every push.
+# private/gitleaks.toml, when there's one, adds the words of your own setup to these.
+title = "dotfiles"
+
+[extend]
+useDefault = true
+
+[[rules]]
+id = "home-path"
+description = "A path into someone's home folder: write ~ or $HOME instead"
+regex = '''/(?:Users|home)/[A-Za-z][\w.-]*'''
+keywords = ["/users/", "/home/"]
+
+[allowlist]
+description = "What can't be public goes in private/"
+paths = ['''(^|/)private/''']
