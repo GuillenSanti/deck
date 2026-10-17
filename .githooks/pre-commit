@@ -2,8 +2,8 @@
 # Stops a commit that would put a secret, a path into your home folder, or a word of your private setup
 # in the repo (gitleaks, with ../private/gitleaks.toml when the deck sits next to one, else .gitleaks.toml)
 if ! command -v gitleaks >/dev/null 2>&1; then
-    echo "pre-commit: gitleaks isn't installed (brew install gitleaks), so this commit wasn't checked" >&2
-    exit 0
+    echo "pre-commit: gitleaks isn't installed (brew install gitleaks); refusing to commit unchecked files" >&2
+    exit 1
 fi
 config=.gitleaks.toml
 [ -f ../private/gitleaks.toml ] && config=../private/gitleaks.toml
