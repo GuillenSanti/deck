@@ -3,6 +3,20 @@
 
 deck_dir="$(cd "$(dirname "$0")" && pwd)"
 
+# Check every destination first: don't replace personal commands or links from another install.
+for script in dash.py agents-history.py pr_review.py branch_diff.py; do
+    destination="$HOME/.tmux/$script"
+    if [ -L "$destination" ]; then
+        if [ "$(readlink "$destination")" != "$deck_dir/$script" ]; then
+            echo "install: $destination already links elsewhere; move it aside before installing deck" >&2
+            exit 1
+        fi
+    elif [ -e "$destination" ]; then
+        echo "install: $destination already exists; move it aside before installing deck" >&2
+        exit 1
+    fi
+done
+
 mkdir -p "$HOME/.tmux"
 for script in dash.py agents-history.py pr_review.py branch_diff.py; do
     ln -sfn "$deck_dir/$script" "$HOME/.tmux/$script"
