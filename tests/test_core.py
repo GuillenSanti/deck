@@ -1,4 +1,5 @@
 import unittest
+from pathlib import Path
 
 import cards.inbox
 import dash_github
@@ -7,6 +8,11 @@ import pr_review
 
 
 class CoreTests(unittest.TestCase):
+    def test_gitleaks_does_not_exclude_private_paths(self):
+        config = (Path(__file__).parents[1] / ".gitleaks.toml").read_text()
+        self.assertNotRegex(config, r"(?m)^\[allowlist\]")
+        self.assertNotRegex(config, r"(?m)^paths\s*=")
+
     def test_parse_pull_request_inputs(self):
         self.assertEqual(pr_review.parse("https://github.com/acme/shop/pull/42"), ("acme/shop", 42))
         self.assertEqual(pr_review.parse("acme/shop#42"), ("acme/shop", 42))
