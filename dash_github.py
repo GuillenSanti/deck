@@ -7,6 +7,7 @@ import re
 import subprocess
 import threading
 import time
+import unicodedata
 import urllib.parse
 from concurrent.futures import ThreadPoolExecutor
 
@@ -107,9 +108,20 @@ def gh_json(*args):
     """gh's JSON output, or None if gh failed."""
     try:
         p = subprocess.run(["gh", *args], capture_output=True, text=True, timeout=30)
-        return json.loads(p.stdout) if p.returncode == 0 else None
+        return safe_api_data(json.loads(p.stdout)) if p.returncode == 0 else None
     except (OSError, subprocess.SubprocessError, ValueError):
         return None
+
+
+def safe_api_data(value):
+    """Remove terminal control characters from untrusted text returned by GitHub."""
+    if isinstance(value, str):
+        return "".join(" " if unicodedata.category(char) == "Cc" else char for char in value)
+    if isinstance(value, list):
+        return [safe_api_data(item) for item in value]
+    if isinstance(value, dict):
+        return {key: safe_api_data(item) for key, item in value.items()}
+    return value
 
 
 def fetch_pr(repo, branch):
@@ -125,7 +137,7 @@ def fetch_pr(repo, branch):
         return False
     if p.returncode != 0:
         return None if "no pull requests found" in p.stderr else False
-    d = json.loads(p.stdout)
+    d = safe_api_data(json.loads(p.stdout))
     return {
         "number": d["number"],
         "state": d["state"],
