@@ -1,3 +1,4 @@
+import os
 import tempfile
 import unittest
 from pathlib import Path
@@ -11,6 +12,21 @@ import pr_review
 
 
 class CoreTests(unittest.TestCase):
+    def test_deck_config_name_takes_precedence_over_legacy_alias(self):
+        with mock.patch.dict(os.environ, {
+            "HOME": str(Path.home()),
+            "DECK_CONFIG": "~/deck-config.json",
+            "DASH_CONFIG": "~/old-dash-config.json",
+        }, clear=True):
+            self.assertEqual(dash_common.config_path(), str(Path.home() / "deck-config.json"))
+
+    def test_dash_config_name_remains_a_legacy_fallback(self):
+        with mock.patch.dict(os.environ, {
+            "HOME": str(Path.home()),
+            "DASH_CONFIG": "~/old-dash-config.json",
+        }, clear=True):
+            self.assertEqual(dash_common.config_path(), str(Path.home() / "old-dash-config.json"))
+
     def test_review_checkout_is_not_the_home_directory_when_missing(self):
         with tempfile.TemporaryDirectory() as temp:
             code = Path(temp) / "code"

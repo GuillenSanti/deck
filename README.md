@@ -55,7 +55,8 @@ It needs macOS (it reads the counters through libSystem), a Nerd Font and the sy
 
 | Variable | Default |
 |---|---|
-| `DASH_CONFIG` | `~/.config/deck/config.json` |
+| `DECK_CONFIG` | `~/.config/deck/config.json` |
+| `DASH_CONFIG` | Legacy alias, used only when `DECK_CONFIG` is unset |
 
 To get it in the session, add this window to your tmuxp layout (`~/.tmuxp/main.yaml`; [the dotfiles](https://github.com/GuillenSanti/dotfiles) have one) and set the session's `base-index` to 0, so `renumber-windows` keeps it at 0:
 

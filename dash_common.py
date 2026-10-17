@@ -1,4 +1,4 @@
-"""The dashboard's settings (DASH_* overrides), tunables and the bits every part shares."""
+"""The dashboard's settings (DECK_* overrides), tunables and the bits every part shares."""
 
 import importlib
 import json
@@ -12,11 +12,19 @@ from concurrent.futures import ThreadPoolExecutor
 
 
 HOME = os.path.expanduser("~")
-# Where things live on this machine; override with DASH_* (e.g. in ~/.zshrc.local).
+# Where things live on this machine; override with DECK_* (e.g. in ~/.zshrc.local).
 # Whatever doesn't exist is left out of the dashboard.
 CACHE_DIR = os.path.join(HOME, ".cache", "tmux-dash")
 ERRORS = os.path.join(CACHE_DIR, "errors.log")  # what broke, written there instead of printed over the deck
-CONFIG = os.path.expanduser(os.environ.get("DASH_CONFIG", "~/.config/deck/config.json"))  # which cards, in what order
+
+
+def config_path():
+    """The deck config path; keep DASH_CONFIG as a fallback for existing shell setups."""
+    value = os.environ.get("DECK_CONFIG") or os.environ.get("DASH_CONFIG") or "~/.config/deck/config.json"
+    return os.path.expanduser(value)
+
+
+CONFIG = config_path()  # which cards, in what order
 CARD_ORDER = ("sessions", "machine", "my_prs", "inbox", "to_review")  # the cards in cards/, as they show by default
 INTERVAL = 5  # seconds between redraws while visible
 UNFOCUSED_INTERVAL = 30  # while visible but the terminal app isn't focused (maybe on another monitor)
