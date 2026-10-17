@@ -74,4 +74,4 @@ windows:
 
 ## Keeping it public
 
-`.githooks/pre-commit` stops a commit that adds a secret or a path into a home folder (`.gitleaks.toml`), and also the words in `../private/gitleaks.toml` when the deck sits in a dotfiles checkout with a private folder next to it. The gitleaks workflow scans the files on every push. A line that only looks like a secret says `gitleaks:allow`.
+`.githooks/pre-commit` stops a commit that adds a secret or a path into a home folder (`.gitleaks.toml`), and also the words in `../private/gitleaks.toml` when the deck sits in a dotfiles checkout with a private folder next to it. The Gitleaks workflow scans the full Git history on every push and pull request. A line that only looks like a secret says `gitleaks:allow`.

@@ -3,12 +3,18 @@ name: gitleaks
 # Every push and PR: no secrets, and no paths into a home folder, in the files (.gitleaks.toml)
 on: [push, pull_request]
 
+permissions:
+  contents: read
+
 jobs:
   scan:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
       - name: Scan the files
         run: >
           docker run --rm -v "$PWD:/repo" -w /repo ghcr.io/gitleaks/gitleaks:v8.30.0
-          dir . --config .gitleaks.toml --no-banner --redact
+          git . --config .gitleaks.toml --no-banner --redact
