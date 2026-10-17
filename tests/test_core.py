@@ -21,6 +21,13 @@ class CoreTests(unittest.TestCase):
         ]
         self.assertEqual(dash_github.check_counts(checks)["failed"], 0)
 
+    def test_github_text_cannot_inject_terminal_controls(self):
+        data = {"title": "safe\x1b]52;c;payload\x07text", "nested": ["one\ntwo"]}
+        safe = dash_github.safe_api_data(data)
+        self.assertEqual(safe["title"], "safe ]52;c;payload text")
+        self.assertEqual(safe["nested"], ["one two"])
+        self.assertNotIn("\x1b", safe["title"])
+
     def test_fit_keeps_columns_with_colours(self):
         line = dash_ui.fit("\033[31mhello\033[0m", 8)
         self.assertEqual(dash_ui.width(line), 8)
