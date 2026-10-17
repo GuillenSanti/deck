@@ -1,13 +1,25 @@
+import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 import cards.inbox
 import dash_github
+import dash_common
 import dash_ui
 import pr_review
 
 
 class CoreTests(unittest.TestCase):
+    def test_review_checkout_is_not_the_home_directory_when_missing(self):
+        with tempfile.TemporaryDirectory() as temp:
+            code = Path(temp) / "code"
+            code.mkdir()
+            with mock.patch.object(pr_review, "CODE", str(code)), \
+                    mock.patch.object(dash_common, "REPO", "acme/main"), \
+                    mock.patch.object(dash_common, "MAIN", ""):
+                self.assertIsNone(pr_review.clone("other/project"))
+
     def test_gitleaks_does_not_exclude_private_paths(self):
         config = (Path(__file__).parents[1] / ".gitleaks.toml").read_text()
         self.assertNotRegex(config, r"(?m)^\[allowlist\]")

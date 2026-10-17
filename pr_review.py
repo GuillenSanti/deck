@@ -80,11 +80,11 @@ def window_name(repo, number):
 
 
 def clone(repo):
-    """The local checkout to review a repo's PRs from, so Claude can read the code around them."""
+    """The local checkout to review a repo's PRs from, so Claude can read the code around them; None if absent."""
     if repo == dash_common.REPO and os.path.isdir(dash_common.MAIN):
         return dash_common.MAIN
     path = os.path.join(CODE, repo.split("/")[-1])
-    return path if os.path.exists(os.path.join(path, ".git")) else HOME
+    return path if os.path.exists(os.path.join(path, ".git")) else None
 
 
 def session_file(sid):
@@ -150,6 +150,8 @@ def review(repo, number):
     earlier = earlier_review(url, str(uuid.uuid5(uuid.NAMESPACE_URL, url)))
     if earlier:
         sid, cwd = earlier
+        if os.path.realpath(cwd) == os.path.realpath(HOME):
+            return f"The earlier review of {repo}#{number} ran from your home folder; close it and clone the repo before reopening it"
         live = agent_sessions.live_claude().get(sid)
         if live:  # open in another window: go there instead of resuming it twice
             tmux("switch-client", "-Z", "-t", live)
@@ -159,6 +161,8 @@ def review(repo, number):
         claude = f"claude --resume {sid}"
     else:
         sid, cwd = str(uuid.uuid5(uuid.NAMESPACE_URL, url)), clone(repo)
+        if not cwd:
+            return f"Clone {repo} into {os.path.join(CODE, repo.split('/')[-1])} before starting its Claude review"
         claude = f"claude --session-id {sid} -n {shlex.quote(name)} {shlex.quote(PROMPT.format(url=url))}"
     # diffnav shows it like GitHub: a file tree and each file's diff (without it, less: n / N jump
     # between files). After q, ↑ Enter reloads it.
