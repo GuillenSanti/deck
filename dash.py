@@ -358,7 +358,8 @@ def main():
                         target = next((t for r, a, b, t in REGIONS if r == int(y) - 1 and a <= int(x) - 1 < b), None)
                         if target:
                             pending = (time.time() + CLICK_SETTLE, target)
-                for key in MOUSE.sub("", typed):
+                events = re.findall(r"\x1b(?:\[[0-9;?]*[A-Za-z~]|O.)|[\s\S]", MOUSE.sub("", typed))
+                for key in events:
                     key = resolve(key)
                     if key is None:  # half of a two-letter key, or one dropped
                         next_check = 0.0

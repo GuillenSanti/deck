@@ -1,5 +1,5 @@
 #!/usr/bin/python3
-"""Review a pull request in its own tmux window: its diff on the left, Claude on the right.
+"""Review a pull request in its own tmux window: its diff on the left, an AI agent on the right.
 
 The window is called "review #N" ("review repo#N" outside the main checkout's repo). Claude's session id comes
 from the PR's URL, so opening the same PR again resumes that review, or goes to it while it's
@@ -34,17 +34,16 @@ ASKS_REVIEW = re.compile(r"review|revis", re.I)  # a prompt asking for a review,
 ESCAPE_SEQUENCE = re.compile(r"\x1b(\[[0-9;?]*[ -/]*[@-~]|O.)")  # arrows and other keys that aren't text
 DIM, RESET = "\033[38;5;240m", "\033[0m"
 
-PROMPT = """review-pr {url}
+PROMPT = """Review pull request {url} and structure your response as follows:
 
-Revisa esta PR y respóndeme en español con esta estructura:
+1. Purpose: what problem the change solves or what it aims to do.
+2. Approach: how it works, the main changes, and why they are made this way.
+3. Blockers: bugs, data or security risks, and missing tests that should be fixed before merging, with file and line.
+4. Improvements: non-blocking suggestions, also with file and line.
+5. Verdict: whether it is safe to approve, needs changes, or only needs a comment, and why.
 
-1. Por qué: qué problema resuelve o qué busca el cambio.
-2. Cómo: cómo lo resuelve, los cambios principales y por qué están hechos así.
-3. Bloqueantes: lo que habría que arreglar antes de mergear (bugs, riesgos para datos o seguridad, tests que faltan), con fichero y línea.
-4. Mejorables: sugerencias que no bloquean, también con fichero y línea.
-5. Veredicto: si es seguro aprobarla, si hay que pedir cambios (request changes) o si basta con comentar, y por qué.
-
-Lee la PR con gh (gh pr view, gh pr diff). No hagas checkout de su rama ni cambies de rama en este checkout: lo usan otras ventanas. No publiques comentarios, ni apruebes ni pidas cambios, sin enseñarme antes el texto."""
+Read the PR with gh (gh pr view, gh pr diff). Do not check out its branch or switch branches in this checkout: other tmux windows use it. Do not post comments, approve, or request changes without showing me the text first."""
+REVIEW_AGENTS = ("claude", "codex", "opencode", "pi")
 
 
 def run(*cmd):
@@ -80,7 +79,7 @@ def window_name(repo, number):
 
 
 def clone(repo):
-    """The local checkout to review a repo's PRs from, so Claude can read the code around them; None if absent."""
+    """The local checkout the review agent reads; None if absent."""
     if repo == dash_common.REPO and os.path.isdir(dash_common.MAIN):
         return dash_common.MAIN
     path = os.path.join(CODE, repo.split("/")[-1])
@@ -103,6 +102,36 @@ def session_cwd(path):
     except OSError:
         pass
     return None
+
+
+def review_settings():
+    """The configured review agent and prompt, with safe defaults."""
+    settings = dash_common.read_config().get("review")
+    settings = settings if isinstance(settings, dict) else {}
+    agent = settings.get("agent", "claude")
+    if not isinstance(agent, str) or agent not in REVIEW_AGENTS:
+        choices = ", ".join(REVIEW_AGENTS)
+        raise ValueError(f"Unknown review agent {agent!r}; choose one of: {choices}")
+    prompt = settings.get("prompt")
+    if not isinstance(prompt, str) or not prompt.strip():
+        prompt = PROMPT
+    return agent, prompt
+
+
+def review_prompt(template, url, repo, number):
+    """Fill PR placeholders without interpreting braces in custom prompt text."""
+    return template.replace("{url}", url).replace("{repo}", repo).replace("{number}", str(number))
+
+
+def agent_command(agent, prompt, sid, name):
+    """A safely quoted interactive command for a supported agent CLI."""
+    commands = {
+        "claude": ["claude", "--session-id", sid, "-n", name, prompt],
+        "codex": ["codex", prompt],
+        "opencode": ["opencode", "--prompt", prompt],
+        "pi": ["pi", prompt],
+    }
+    return shlex.join(commands[agent])
 
 
 def earlier_review(url, sid):
@@ -134,6 +163,12 @@ def type_in(pane, command):
 
 def review(repo, number):
     """Open the PR's review window, or go to it; an error message if that can't be done."""
+    try:
+        agent, prompt_template = review_settings()
+    except ValueError as e:
+        return str(e)
+    if not shutil.which(agent):
+        return f"{agent} isn't installed or isn't on PATH"
     info = run("gh", "pr", "view", str(number), "-R", repo, "--json", "url")
     if not info:
         return f"Couldn't find {repo}#{number} on GitHub"
@@ -147,7 +182,8 @@ def review(repo, number):
         if wname == name:
             tmux("select-window", "-t", window)
             return None
-    earlier = earlier_review(url, str(uuid.uuid5(uuid.NAMESPACE_URL, url)))
+    sid = str(uuid.uuid5(uuid.NAMESPACE_URL, url))
+    earlier = earlier_review(url, sid) if agent == "claude" else None
     if earlier:
         sid, cwd = earlier
         if os.path.realpath(cwd) == os.path.realpath(HOME):
@@ -158,12 +194,13 @@ def review(repo, number):
             return None
         if not os.path.isdir(cwd):
             return f"The review of {repo}#{number} ran in {cwd}, which doesn't exist any more"
-        claude = f"claude --resume {sid}"
+        command = f"claude --resume {sid}"
     else:
-        sid, cwd = str(uuid.uuid5(uuid.NAMESPACE_URL, url)), clone(repo)
+        cwd = clone(repo)
         if not cwd:
-            return f"Clone {repo} into {os.path.join(CODE, repo.split('/')[-1])} before starting its Claude review"
-        claude = f"claude --session-id {sid} -n {shlex.quote(name)} {shlex.quote(PROMPT.format(url=url))}"
+            return f"Clone {repo} into {os.path.join(CODE, repo.split('/')[-1])} before starting its {agent} review"
+        prompt = review_prompt(prompt_template, url, repo, number)
+        command = agent_command(agent, prompt, sid, name)
     # diffnav shows it like GitHub: a file tree and each file's diff (without it, less: n / N jump
     # between files). After q, ↑ Enter reloads it.
     if shutil.which("diffnav"):
@@ -177,7 +214,7 @@ def review(repo, number):
     right = tmux("split-window", "-h", "-t", left, "-c", cwd, "-l", "50%", "-P", "-F", "#{pane_id}")
     type_in(left, diff)
     if right:
-        type_in(right, claude)
+        type_in(right, command)
     tmux("select-pane", "-t", left)
     return None
 
