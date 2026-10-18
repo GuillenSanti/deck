@@ -56,7 +56,7 @@ class CoreTests(unittest.TestCase):
             settings = dash_settings.sections()[-1][2]
 
         self.assertIn(("edit:review_agent", "text", "Review agent", "claude (default)"), settings)
-        self.assertIn(("edit:review_prompt", "text", "Review prompt", "English default"), settings)
+        self.assertIn(("edit:review_prompt", "text", "Review prompt", "default"), settings)
 
     def test_settings_save_review_fields_and_keep_the_other_value(self):
         config = {"review": {"agent": "codex", "prompt": "old prompt"}}

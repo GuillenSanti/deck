@@ -51,7 +51,7 @@ def sections():
     review = config.get("review")
     review = review if isinstance(review, dict) else {}
     agent = review.get("agent") or "claude (default)"
-    prompt = "custom" if review.get("prompt") else "English default"
+    prompt = "custom" if review.get("prompt") else "default"
     if not repo and dash_common.REPO:
         repo = f"{dash_common.REPO} {DIM}(the checkout's origin){BRIGHT}"
     return [
