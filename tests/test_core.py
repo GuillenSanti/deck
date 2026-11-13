@@ -1,4 +1,5 @@
 import os
+import re
 import shlex
 import tempfile
 import unittest
@@ -6,6 +7,7 @@ from pathlib import Path
 from unittest import mock
 
 import cards.inbox
+import cards.my_prs
 import dash_github
 import dash_common
 import dash_settings
@@ -191,6 +193,21 @@ class CoreTests(unittest.TestCase):
         self.assertEqual(safe["title"], "safe ]52;c;payload text")
         self.assertEqual(safe["nested"], ["one two"])
         self.assertNotIn("\x1b", safe["title"])
+
+    def test_my_prs_show_a_stack_together_each_under_the_one_it_builds_on(self):
+        def pr(number, at, place=None):
+            return {
+                "repo": "acme/shop", "number": number, "title": f"Change {number}", "state": "OPEN",
+                "url": f"https://github.com/acme/shop/pull/{number}", "draft": False, "review": "", "at": at,
+                "failed": 0, "pending": 0, "conflicts": False, "auto_merge": False, "adds": 1, "dels": 1,
+                "stack": place and {"number": 7, "position": place, "size": 3},
+            }
+        newest_first = [pr(13, 400, 3), pr(20, 300), pr(11, 200, 1), pr(12, 100, 2)]
+        lines, _ = cards.my_prs.my_pr_lines({"value": newest_first}, {}, 160)
+        rows = [dash_ui.ANSI.sub("", line) for line in lines]
+        title = rows[0].index("1/3")  # where the title column starts
+        titles = [re.match(r" *(└ )?(\d/3 )?Change \d+", row[title:]).group() for row in rows]
+        self.assertEqual(titles, ["1/3 Change 11", "└ 2/3 Change 12", "  └ 3/3 Change 13", "Change 20"])
 
     def test_fit_keeps_columns_with_colours(self):
         line = dash_ui.fit("\033[31mhello\033[0m", 8)
