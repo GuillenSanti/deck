@@ -13,6 +13,7 @@ from dash_ui import (
 TITLE, TITLE_ICON = "My PRs", ICON["pull"]
 ALERT_ORDER = 2
 HINT = "click or a-z  open PR"
+STACK_INDENT = 4  # the deepest a stacked PR goes, so longer stacks don't eat their titles
 
 
 def refresh(data, force):
@@ -116,6 +117,34 @@ def approval_text(pr):
     return paint(DIM, f"{approvals} {ICON['check']}") if approvals else ""
 
 
+def stacked(prs):
+    """The PRs with each GitHub stack's together, first to last, where its latest PR was; and, by URL,
+    how many of yours each stacked PR is built on."""
+    stacks = {}
+    for p in prs:
+        if p.get("stack"):
+            stacks.setdefault((p["repo"], p["stack"]["number"]), []).append(p)
+    out, depth = [], {}
+    for p in prs:
+        if not p.get("stack"):
+            out.append(p)
+        elif p["url"] not in depth:
+            for i, q in enumerate(sorted(stacks[(p["repo"], p["stack"]["number"])], key=lambda q: q["stack"]["position"])):
+                out.append(q)
+                depth[q["url"]] = i
+    return out, depth
+
+
+def stack_text(pr, depth):
+    """A stacked PR's place in its stack, hanging under the one it's built on: "└ 2/4"."""
+    stack = pr.get("stack")
+    if not stack:
+        return ""
+    depth = min(depth, STACK_INDENT)
+    branch = paint(DIM, "  " * (depth - 1) + "└ ") if depth else ""
+    return branch + paint(MUTED, f"{stack['position']}/{stack['size']}") + " "
+
+
 def size_text(pr):
     if pr.get("adds") is None:
         return ""
@@ -128,7 +157,7 @@ def my_pr_lines(entry, data, inner, keys=PR_KEYS):
         return [paint(DIM, "Loading your PRs from GitHub…")], {}
     if entry["value"] is None:
         return [paint(RED, "Couldn't read your PRs (check gh auth status)")], {}
-    opened = [p for p in entry["value"] if p["state"] == "OPEN"]
+    opened, depth = stacked([p for p in entry["value"] if p["state"] == "OPEN"])
     merged = [p for p in entry["value"] if p["state"] == "MERGED"][:MERGED_SHOWN]
     prs = opened + merged  # a letter for the first ones, as long as there are letters left
     if not prs:
@@ -166,7 +195,7 @@ def my_pr_lines(entry, data, inner, keys=PR_KEYS):
             fit(key_chip(key), 4)
             + fit(link(pr["url"], paint(DIM if merged else BLUE, f"{UNDERLINE}#{pr['number']}{NO_UNDERLINE}")), 9)
             + fit(repo_label(pr["repo"], mixed, DIM if merged else MUTED), repo_w - 2) + "  "
-            + fit(link(pr["url"], paint(color, pr["title"])), title_w - 2) + "  "
+            + fit(stack_text(pr, depth.get(pr["url"], 0)) + link(pr["url"], paint(color, pr["title"])), title_w - 2) + "  "
             + fit(status, 28)
             + fit(review, 24)
             + fit(comments, 16)

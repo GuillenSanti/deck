@@ -173,7 +173,7 @@ query($open: String!, $merged: String!) {
   open: search(query: $open, type: ISSUE, first: 30) {
     nodes { ... on PullRequest {
       number title url isDraft reviewDecision updatedAt headRefName baseRefName mergeable additions deletions
-      autoMergeRequest { enabledAt } repository { nameWithOwner }
+      autoMergeRequest { enabledAt } repository { nameWithOwner } stackEntry { position stack { number size } }
       %s
     } }
   }
@@ -184,6 +184,15 @@ query($open: String!, $merged: String!) {
   }
 }
 """ % (PR_EXTRA_FIELDS, MERGED_MAX)
+
+
+def stack_of(pr):
+    """The GitHub stack an open PR is in: its number, the PR's place (1 is on the base branch) and its size."""
+    entry = pr.get("stackEntry") or {}
+    stack = entry.get("stack") or {}
+    if not stack.get("number") or not entry.get("position"):
+        return None
+    return {"number": stack["number"], "position": entry["position"], "size": stack.get("size") or entry["position"]}
 
 
 def mine_key():
@@ -225,6 +234,7 @@ def fetch_mine(key):
                 "at": iso_time(n["updatedAt"]),
                 "adds": n.get("additions"),
                 "dels": n.get("deletions"),
+                "stack": stack_of(n),
                 **check_counts([]),  # filled in from the full check list below
                 **parse_extras(n),
             }
